@@ -59,10 +59,10 @@ Before you begin, ensure you have the following installed:
 Create a `.env` file in the root directory based on `.env.example`:
 
 ```env
-PORT=2567
-MONGO_URI=mongodb://localhost:27017/metamesh
-JWT_SECRET=your_secure_jwt_secret
-JWT_EXPIRATION=7d
+PORT=
+MONGO_URI=
+JWT_SECRET=
+JWT_EXPIRATION=
 ```
 
 ### Client Configuration
