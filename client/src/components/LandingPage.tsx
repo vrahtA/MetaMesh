@@ -69,7 +69,7 @@ const Content = styled.div`
 `
 
 const LogoImg = styled.img`
-  width: 120px;
+  width: 280px;
   margin-bottom: 24px;
   filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.5));
   animation: ${float} 4s ease-in-out infinite;

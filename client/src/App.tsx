@@ -3,17 +3,16 @@ import styled from 'styled-components'
 
 import { useAppSelector } from './hooks'
 
-import RoomSelectionDialog from './components/RoomSelectionDialog'
-import LoginDialog from './components/LoginDialog'
-import ComputerDialog from './components/ComputerDialog'
-import WhiteboardDialog from './components/WhiteboardDialog'
-import VideoConnectionDialog from './components/VideoConnectionDialog'
 import Chat from './components/Chat'
-import HelperButtonGroup from './components/HelperButtonGroup'
+import ComputerDialog from './components/ComputerDialog'
+import LoginDialog from './components/LoginDialog'
 import MobileVirtualJoystick from './components/MobileVirtualJoystick'
+import RoomSelectionDialog from './components/RoomSelectionDialog'
+import VideoConnectionDialog from './components/VideoConnectionDialog'
+import WhiteboardDialog from './components/WhiteboardDialog'
 
-import LandingPage from './components/LandingPage'
 import GameHUD from './components/GameHUD'
+import LandingPage from './components/LandingPage'
 
 const Backdrop = styled.div`
   position: absolute;

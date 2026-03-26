@@ -1,33 +1,32 @@
-import React, { useState, useEffect } from 'react'
-import styled, { keyframes } from 'styled-components'
-import TextField from '@mui/material/TextField'
-import Button from '@mui/material/Button'
-import Avatar from '@mui/material/Avatar'
-import Alert from '@mui/material/Alert'
-import AlertTitle from '@mui/material/AlertTitle'
 import ArrowRightIcon from '@mui/icons-material/ArrowRight'
-import IconButton from '@mui/material/IconButton'
-import InputAdornment from '@mui/material/InputAdornment'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
-import LinearProgress from '@mui/material/LinearProgress'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import Alert from '@mui/material/Alert'
+import AlertTitle from '@mui/material/AlertTitle'
+import Avatar from '@mui/material/Avatar'
+import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
+import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
+import TextField from '@mui/material/TextField'
+import React, { useEffect, useState } from 'react'
+import styled, { keyframes } from 'styled-components'
 
-import { Swiper, SwiperSlide } from 'swiper/react'
-import { Navigation, EffectCoverflow } from 'swiper'
+import { EffectCoverflow, Navigation } from 'swiper'
 import 'swiper/css'
-import 'swiper/css/navigation'
 import 'swiper/css/effect-coverflow'
+import 'swiper/css/navigation'
+import { Swiper, SwiperSlide } from 'swiper/react'
 
+import { useAppDispatch, useAppSelector } from '../hooks'
 import Adam from '../images/login/Adam_login.png'
 import Ash from '../images/login/Ash_login.png'
 import Lucy from '../images/login/Lucy_login.png'
 import Nancy from '../images/login/Nancy_login.png'
-import { useAppSelector, useAppDispatch } from '../hooks'
-import { setLoggedIn, setAuthData } from '../stores/UserStore'
-import { getAvatarString, getColorByString } from '../util'
 import authService from '../services/authService'
+import { setAuthData, setLoggedIn } from '../stores/UserStore'
+import { getAvatarString, getColorByString } from '../util'
 
 import phaserGame from '../PhaserGame'
 import Game from '../scenes/Game'
@@ -199,7 +198,7 @@ const AvatarCarousel = styled.div`
     width: 180px;
     height: 240px;
     border-radius: 16px;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .swiper-slide {

@@ -18,25 +18,25 @@ import { getColorByString } from '../util'
 import { useAppDispatch, useAppSelector } from '../hooks'
 import { MessageType, setFocused, setShowChat } from '../stores/ChatStore'
 
-// ... imports
 import SendIcon from '@mui/icons-material/Send'
 
-// ... existing imports
-
-const Backdrop = styled.div`
+// Root container always at bottom-left
+const ChatContainer = styled.div`
   position: fixed;
-  bottom: 80px;
+  bottom: 20px;
   left: 20px;
-  height: 400px;
-  width: 400px;
-  max-height: 50vh;
-  max-width: 90vw;
   z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 `
 
-const Wrapper = styled.div`
-  position: relative;
-  height: 100%;
+// The chat panel (only visible when open)
+const ChatPanel = styled.div`
+  width: 360px;
+  height: 400px;
+  max-height: 50vh;
   display: flex;
   flex-direction: column;
   background: rgba(30, 41, 59, 0.85);
@@ -46,23 +46,11 @@ const Wrapper = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
   overflow: hidden;
-  animation: fadeIn 0.3s ease-out;
-  
-  @keyframes fadeIn {
+  animation: chatFadeIn 0.3s ease-out;
+
+  @keyframes chatFadeIn {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-`
-
-const FabWrapper = styled.div`
-  margin-top: auto;
-  
-  .MuiFab-root {
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: white;
-    &:hover {
-      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    }
   }
 `
 
@@ -99,6 +87,7 @@ const ChatBox = styled(Box)`
   flex-direction: column;
   gap: 12px;
   background: transparent;
+  position: relative;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -211,6 +200,20 @@ const EmojiPickerWrapper = styled.div`
   }
 `
 
+const ChatFab = styled(Fab)`
+  && {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    &:hover {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      box-shadow: 0 8px 20px rgba(99, 102, 241, 0.5);
+      transform: scale(1.05);
+    }
+    transition: all 0.2s ease;
+  }
+`
+
 const dateFormatter = new Intl.DateTimeFormat('en', {
   timeStyle: 'short',
 })
@@ -237,7 +240,6 @@ const Message = ({ chatMessage, messageType }) => {
   )
 }
 
-
 export default function Chat() {
   const [inputValue, setInputValue] = useState('')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -256,7 +258,6 @@ export default function Chat() {
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
-      // move focus back to the game
       inputRef.current?.blur()
       dispatch(setShowChat(false))
     }
@@ -265,15 +266,10 @@ export default function Chat() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    // this is added because without this, 2 things happen at the same
-    // time when Enter is pressed, (1) the inputRef gets focus (from
-    // useEffect) and (2) the form gets submitted (right after the input
-    // gets focused)
     if (!readyToSubmit) {
       setReadyToSubmit(true)
       return
     }
-    // move focus back to the game
     inputRef.current?.blur()
 
     const val = inputValue.trim()
@@ -299,85 +295,87 @@ export default function Chat() {
   }, [chatMessages, showChat])
 
   return (
-    <Backdrop>
-      <Wrapper>
-        {showChat ? (
-          <>
-            <ChatHeader>
-              <h3>Chat</h3>
-              <IconButton
-                aria-label="close dialog"
-                className="close"
-                onClick={() => dispatch(setShowChat(false))}
-                size="small"
-              >
-                <CloseIcon />
-              </IconButton>
-            </ChatHeader>
-            <ChatBox>
-              {chatMessages.map(({ messageType, chatMessage }, index) => (
-                <Message chatMessage={chatMessage} messageType={messageType} key={index} />
-              ))}
-              <div ref={messagesEndRef} />
-              {showEmojiPicker && (
-                <EmojiPickerWrapper>
-                  <Picker
-                    theme="dark"
-                    showSkinTones={false}
-                    showPreview={false}
-                    onSelect={(emoji) => {
-                      setInputValue(inputValue + emoji.native)
-                      setShowEmojiPicker(!showEmojiPicker)
-                      dispatch(setFocused(true))
-                    }}
-                    exclude={['recent', 'flags']}
-                  />
-                </EmojiPickerWrapper>
-              )}
-            </ChatBox>
-            <InputWrapper onSubmit={handleSubmit}>
-              <InputTextField
-                inputRef={inputRef}
-                autoFocus={focused}
-                fullWidth
-                placeholder="Press Enter to chat"
-                value={inputValue}
-                onKeyDown={handleKeyDown}
-                onChange={handleChange}
-                onFocus={() => {
-                  if (!focused) {
-                    dispatch(setFocused(true))
-                    setReadyToSubmit(true)
-                  }
-                }}
-                onBlur={() => {
-                  dispatch(setFocused(false))
-                  setReadyToSubmit(false)
-                }}
-              />
-              <IconButton aria-label="emoji" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ color: '#94a3b8' }}>
-                <InsertEmoticonIcon />
-              </IconButton>
-              <IconButton type="submit" aria-label="send" style={{ color: '#6366f1' }}>
-                <SendIcon />
-              </IconButton>
-            </InputWrapper>
-          </>
-        ) : (
-          <FabWrapper>
-            <Fab
-              color="secondary"
-              aria-label="showChat"
-              onClick={() => {
-                dispatch(setShowChat(true))
-                dispatch(setFocused(true))
-              }}
+    <ChatContainer>
+      {/* Chat panel — only rendered when open */}
+      {showChat && (
+        <ChatPanel>
+          <ChatHeader>
+            <h3>Chat</h3>
+            <IconButton
+              aria-label="close dialog"
+              className="close"
+              onClick={() => dispatch(setShowChat(false))}
+              size="small"
             >
-              <ChatBubbleOutlineIcon />
-            </Fab>
-          </FabWrapper>
-        )}
-      </Wrapper>
-    </Backdrop>
+              <CloseIcon />
+            </IconButton>
+          </ChatHeader>
+          <ChatBox>
+            {chatMessages.map(({ messageType, chatMessage }, index) => (
+              <Message chatMessage={chatMessage} messageType={messageType} key={index} />
+            ))}
+            <div ref={messagesEndRef} />
+            {showEmojiPicker && (
+              <EmojiPickerWrapper>
+                <Picker
+                  theme="dark"
+                  showSkinTones={false}
+                  showPreview={false}
+                  onSelect={(emoji) => {
+                    setInputValue(inputValue + emoji.native)
+                    setShowEmojiPicker(!showEmojiPicker)
+                    dispatch(setFocused(true))
+                  }}
+                  exclude={['recent', 'flags']}
+                />
+              </EmojiPickerWrapper>
+            )}
+          </ChatBox>
+          <InputWrapper onSubmit={handleSubmit}>
+            <InputTextField
+              inputRef={inputRef}
+              autoFocus={focused}
+              fullWidth
+              placeholder="Press Enter to chat"
+              value={inputValue}
+              onKeyDown={handleKeyDown}
+              onChange={handleChange}
+              onFocus={() => {
+                if (!focused) {
+                  dispatch(setFocused(true))
+                  setReadyToSubmit(true)
+                }
+              }}
+              onBlur={() => {
+                dispatch(setFocused(false))
+                setReadyToSubmit(false)
+              }}
+            />
+            <IconButton aria-label="emoji" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ color: '#94a3b8' }}>
+              <InsertEmoticonIcon />
+            </IconButton>
+            <IconButton type="submit" aria-label="send" style={{ color: '#6366f1' }}>
+              <SendIcon />
+            </IconButton>
+          </InputWrapper>
+        </ChatPanel>
+      )}
+
+      {/* FAB is always shown when chat is closed */}
+      {!showChat && (
+        <Tooltip title="Open Chat" placement="right">
+          <ChatFab
+            color="secondary"
+            aria-label="showChat"
+            onClick={() => {
+              dispatch(setShowChat(true))
+              dispatch(setFocused(true))
+            }}
+          >
+            <ChatBubbleOutlineIcon />
+          </ChatFab>
+        </Tooltip>
+      )}
+    </ChatContainer>
   )
 }

@@ -1,38 +1,36 @@
-import React, { useState } from 'react'
-import styled, { keyframes } from 'styled-components'
-import IconButton from '@mui/material/IconButton'
-import Tooltip from '@mui/material/Tooltip'
-import Avatar from '@mui/material/Avatar'
-import Chip from '@mui/material/Chip'
-import Badge from '@mui/material/Badge'
-import Menu from '@mui/material/Menu'
-import MenuItem from '@mui/material/MenuItem'
-import Divider from '@mui/material/Divider'
-import ListItemIcon from '@mui/material/ListItemIcon'
-import SettingsIcon from '@mui/icons-material/Settings'
+import CloseIcon from '@mui/icons-material/Close'
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
+import LightModeIcon from '@mui/icons-material/LightMode'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MicIcon from '@mui/icons-material/Mic'
 import MicOffIcon from '@mui/icons-material/MicOff'
+import NotificationsIcon from '@mui/icons-material/Notifications'
+import PeopleIcon from '@mui/icons-material/People'
+import ScreenShareIcon from '@mui/icons-material/ScreenShare'
+import SettingsIcon from '@mui/icons-material/Settings'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import VideocamOffIcon from '@mui/icons-material/VideocamOff'
-import ScreenShareIcon from '@mui/icons-material/ScreenShare'
-import MapIcon from '@mui/icons-material/Map'
-import PeopleIcon from '@mui/icons-material/People'
-import NotificationsIcon from '@mui/icons-material/Notifications'
-import LightModeIcon from '@mui/icons-material/LightMode'
-import DarkModeIcon from '@mui/icons-material/DarkMode'
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import VideogameAssetIcon from '@mui/icons-material/VideogameAsset'
 import VideogameAssetOffIcon from '@mui/icons-material/VideogameAssetOff'
-import CloseIcon from '@mui/icons-material/Close'
+import Avatar from '@mui/material/Avatar'
+import Badge from '@mui/material/Badge'
+import Divider from '@mui/material/Divider'
+import IconButton from '@mui/material/IconButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import Tooltip from '@mui/material/Tooltip'
+import React, { useState } from 'react'
+import styled, { keyframes } from 'styled-components'
 
-import ProfileDialog from './ProfileDialog'
-import { useAppSelector, useAppDispatch } from '../hooks'
-import { setLoggedIn, setShowJoystick, toggleBackgroundMode } from '../stores/UserStore'
-import { getAvatarString, getColorByString } from '../util'
+import { BackgroundMode } from '../../../types/BackgroundMode'
+import { useAppDispatch, useAppSelector } from '../hooks'
 import phaserGame from '../PhaserGame'
 import Game from '../scenes/Game'
-import { BackgroundMode } from '../../../types/BackgroundMode'
+import { setLoggedIn, setShowJoystick, toggleBackgroundMode } from '../stores/UserStore'
+import { getAvatarString, getColorByString } from '../util'
+import ProfileDialog from './ProfileDialog'
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(-10px); }
@@ -208,6 +206,41 @@ export default function GameHUD() {
   const [showHelp, setShowHelp] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+
+  const getStream = (): MediaStream | undefined => {
+    try {
+      const game = phaserGame.scene.keys.game as Game
+      return (game?.network?.webRTC as any)?.myStream as MediaStream | undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  const handleMicToggle = () => {
+    const stream = getStream()
+    if (stream) {
+      const track = stream.getAudioTracks()[0]
+      if (track) {
+        track.enabled = !track.enabled
+        setMicOn(track.enabled)
+        return
+      }
+    }
+    setMicOn((prev) => !prev)
+  }
+
+  const handleCamToggle = () => {
+    const stream = getStream()
+    if (stream) {
+      const track = stream.getVideoTracks()[0]
+      if (track) {
+        track.enabled = !track.enabled
+        setCamOn(track.enabled)
+        return
+      }
+    }
+    setCamOn((prev) => !prev)
+  }
   
   const handleProfileClick = (event: React.MouseEvent<HTMLElement>) => {
     setShowProfile(true)
@@ -261,13 +294,13 @@ export default function GameHUD() {
 
           {/* Media Controls */}
           <Tooltip title={micOn ? 'Mute Microphone' : 'Unmute Microphone'}>
-            <ControlButton onClick={() => setMicOn(!micOn)} className={!micOn ? 'danger' : ''}>
+            <ControlButton onClick={handleMicToggle} className={!micOn ? 'danger' : ''}>
               {micOn ? <MicIcon fontSize="small" /> : <MicOffIcon fontSize="small" />}
             </ControlButton>
           </Tooltip>
           
           <Tooltip title={camOn ? 'Turn Off Camera' : 'Turn On Camera'}>
-            <ControlButton onClick={() => setCamOn(!camOn)} className={!camOn ? 'danger' : ''}>
+            <ControlButton onClick={handleCamToggle} className={!camOn ? 'danger' : ''}>
               {camOn ? <VideocamIcon fontSize="small" /> : <VideocamOffIcon fontSize="small" />}
             </ControlButton>
           </Tooltip>
