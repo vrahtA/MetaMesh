@@ -6,7 +6,6 @@ import { useAppSelector } from './hooks'
 import Chat from './components/Chat'
 import ComputerDialog from './components/ComputerDialog'
 import LoginDialog from './components/LoginDialog'
-import MobileVirtualJoystick from './components/MobileVirtualJoystick'
 import RoomSelectionDialog from './components/RoomSelectionDialog'
 import VideoConnectionDialog from './components/VideoConnectionDialog'
 import WhiteboardDialog from './components/WhiteboardDialog'
@@ -41,12 +40,10 @@ function App() {
       ui = <WhiteboardDialog />
     } else {
       ui = (
-        /* Render Chat or VideoConnectionDialog if no dialogs are opened. */
+        /* Render Chat + VideoConnectionDialog when no dialogs are open */
         <>
           <Chat />
-          {/* Render VideoConnectionDialog if user is not connected to a webcam. */}
-          {!videoConnected && <VideoConnectionDialog />}
-          <MobileVirtualJoystick />
+          <VideoConnectionDialog />
         </>
       )
     }

@@ -25,6 +25,14 @@ export default class Network {
   private client: Client
   private room?: Room<IOfficeState>
   private lobby!: Room
+  private joinedPlayerIds = new Set<string>()
+  /**
+   * Players whose PLAYER_JOINED event fired before Game.create() registered
+   * its onPlayerJoined listener.  We buffer them here and flush when the
+   * game scene calls onPlayerJoined(), guaranteeing every avatar is created.
+   */
+  private pendingPlayerJoins: Array<{ player: IPlayer; key: string }> = []
+  private gameSceneReady = false
   webRTC?: WebRTC
 
   mySessionId!: string
@@ -102,17 +110,39 @@ export default class Network {
     this.room.state.players.onAdd = (player: IPlayer, key: string) => {
       if (key === this.mySessionId) return
 
+      const tryEmitPlayerJoined = (name: string) => {
+        // Only emit once per player — Colyseus sometimes delivers the name
+        // in the initial onAdd state AND again via onChange, causing duplicates.
+        if (this.joinedPlayerIds.has(key)) return
+        this.joinedPlayerIds.add(key)
+        store.dispatch(setPlayerNameMap({ id: key, name }))
+        store.dispatch(pushPlayerJoinedMessage(name))
+
+        if (this.gameSceneReady) {
+          // Game scene is already listening — emit immediately.
+          phaserEvents.emit(Event.PLAYER_JOINED, player, key)
+        } else {
+          // Game.create() hasn't registered its onPlayerJoined listener yet.
+          // Buffer this player; we'll flush when onPlayerJoined() is called.
+          this.pendingPlayerJoins.push({ player, key })
+        }
+      }
+
+      // Handle players who already have a name when we subscribe
+      // (late-joiners: existing players never fire onChange for their name)
+      if (player.name && player.name !== '') {
+        tryEmitPlayerJoined(player.name)
+      }
+
       // track changes on every child object inside the players MapSchema
       player.onChange = (changes) => {
         changes.forEach((change) => {
           const { field, value } = change
           phaserEvents.emit(Event.PLAYER_UPDATED, field, value, key)
 
-          // when a new player finished setting up player name
+          // when a new player finishes setting up their name
           if (field === 'name' && value !== '') {
-            phaserEvents.emit(Event.PLAYER_JOINED, player, key)
-            store.dispatch(setPlayerNameMap({ id: key, name: value }))
-            store.dispatch(pushPlayerJoinedMessage(value))
+            tryEmitPlayerJoined(value as string)
           }
         })
       }
@@ -125,6 +155,7 @@ export default class Network {
       this.webRTC?.deleteOnCalledVideoStream(key)
       store.dispatch(pushPlayerLeftMessage(player.name))
       store.dispatch(removePlayerNameMap(key))
+      this.joinedPlayerIds.delete(key)
     }
 
     // new instance added to the computers MapSchema
@@ -205,7 +236,26 @@ export default class Network {
 
   // method to register event listener and call back function when a player joined
   onPlayerJoined(callback: (Player: IPlayer, key: string) => void, context?: any) {
+    this.gameSceneReady = true
     phaserEvents.on(Event.PLAYER_JOINED, callback, context)
+
+    // Flush players whose PLAYER_JOINED fired before this listener was registered
+    // (i.e., players already in the room when the new client joined).
+    // The `player` references are live Colyseus schema objects, so their x/y/
+    // readyToConnect/videoConnected values reflect the CURRENT server state.
+    const pending = this.pendingPlayerJoins.splice(0)
+    pending.forEach(({ player, key }) => {
+      phaserEvents.emit(Event.PLAYER_JOINED, player, key)
+      // Replay proximity-chat state fields that were also missed while the
+      // game scene wasn't listening.  Without this, new users can never
+      // initiate WebRTC calls with existing users.
+      if (player.readyToConnect) {
+        phaserEvents.emit(Event.PLAYER_UPDATED, 'readyToConnect', true, key)
+      }
+      if (player.videoConnected) {
+        phaserEvents.emit(Event.PLAYER_UPDATED, 'videoConnected', true, key)
+      }
+    })
   }
 
   // method to register event listener and call back function when a player left

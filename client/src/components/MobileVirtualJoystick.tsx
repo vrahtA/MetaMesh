@@ -11,7 +11,7 @@ import { JoystickMovement } from './Joystick'
 const Backdrop = styled.div`
   position: fixed;
   bottom: 100px;
-  right: 32px;
+  left: 32px;
   max-height: 50%;
   max-width: 100%;
 `
@@ -26,7 +26,7 @@ const Wrapper = styled.div`
 
 const JoystickWrapper = styled.div`
   margin-top: auto;
-  align-self: flex-end;
+  align-self: flex-start;
 `
 export const minimumScreenWidthSize = 650 //px
 

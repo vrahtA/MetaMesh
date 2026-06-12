@@ -223,6 +223,10 @@ export default class Game extends Phaser.Scene {
 
   // function to add new player to the otherPlayer group
   private handlePlayerJoined(newPlayer: IPlayer, id: string) {
+    // Guard against duplicate creation (Network.ts deduplicates PLAYER_JOINED,
+    // but this is a secondary safety net)
+    if (this.otherPlayerMap.has(id)) return
+
     const otherPlayer = this.add.otherPlayer(newPlayer.x, newPlayer.y, 'adam', id, newPlayer.name)
     this.otherPlayers.add(otherPlayer)
     this.otherPlayerMap.set(id, otherPlayer)
@@ -233,6 +237,7 @@ export default class Game extends Phaser.Scene {
     if (this.otherPlayerMap.has(id)) {
       const otherPlayer = this.otherPlayerMap.get(id)
       if (!otherPlayer) return
+      otherPlayer.disconnect()
       this.otherPlayers.remove(otherPlayer, true, true)
       this.otherPlayerMap.delete(id)
     }

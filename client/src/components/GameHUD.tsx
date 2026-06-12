@@ -2,17 +2,11 @@ import CloseIcon from '@mui/icons-material/Close'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 import LightModeIcon from '@mui/icons-material/LightMode'
+import ExitToAppIcon from '@mui/icons-material/ExitToApp'
 import LogoutIcon from '@mui/icons-material/Logout'
-import MicIcon from '@mui/icons-material/Mic'
-import MicOffIcon from '@mui/icons-material/MicOff'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PeopleIcon from '@mui/icons-material/People'
-import ScreenShareIcon from '@mui/icons-material/ScreenShare'
 import SettingsIcon from '@mui/icons-material/Settings'
-import VideocamIcon from '@mui/icons-material/Videocam'
-import VideocamOffIcon from '@mui/icons-material/VideocamOff'
-import VideogameAssetIcon from '@mui/icons-material/VideogameAsset'
-import VideogameAssetOffIcon from '@mui/icons-material/VideogameAssetOff'
 import Avatar from '@mui/material/Avatar'
 import Badge from '@mui/material/Badge'
 import Divider from '@mui/material/Divider'
@@ -28,7 +22,7 @@ import { BackgroundMode } from '../../../types/BackgroundMode'
 import { useAppDispatch, useAppSelector } from '../hooks'
 import phaserGame from '../PhaserGame'
 import Game from '../scenes/Game'
-import { setLoggedIn, setShowJoystick, toggleBackgroundMode } from '../stores/UserStore'
+import { setLoggedIn, toggleBackgroundMode } from '../stores/UserStore'
 import { getAvatarString, getColorByString } from '../util'
 import ProfileDialog from './ProfileDialog'
 
@@ -200,48 +194,11 @@ export default function GameHUD() {
   const dispatch = useAppDispatch()
   const user = useAppSelector((state) => state.user)
   const room = useAppSelector((state) => state.room)
-  
-  const [micOn, setMicOn] = useState(true)
-  const [camOn, setCamOn] = useState(true)
+
   const [showHelp, setShowHelp] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
-  const getStream = (): MediaStream | undefined => {
-    try {
-      const game = phaserGame.scene.keys.game as Game
-      return (game?.network?.webRTC as any)?.myStream as MediaStream | undefined
-    } catch {
-      return undefined
-    }
-  }
-
-  const handleMicToggle = () => {
-    const stream = getStream()
-    if (stream) {
-      const track = stream.getAudioTracks()[0]
-      if (track) {
-        track.enabled = !track.enabled
-        setMicOn(track.enabled)
-        return
-      }
-    }
-    setMicOn((prev) => !prev)
-  }
-
-  const handleCamToggle = () => {
-    const stream = getStream()
-    if (stream) {
-      const track = stream.getVideoTracks()[0]
-      if (track) {
-        track.enabled = !track.enabled
-        setCamOn(track.enabled)
-        return
-      }
-    }
-    setCamOn((prev) => !prev)
-  }
-  
   const handleProfileClick = (event: React.MouseEvent<HTMLElement>) => {
     setShowProfile(true)
   }
@@ -283,31 +240,12 @@ export default function GameHUD() {
             </ControlButton>
           </Tooltip>
 
-          {/* Joystick Toggle (Mobile) */}
-          <Tooltip title={user.showJoystick ? 'Disable Joystick' : 'Enable Joystick'}>
-             <ControlButton onClick={() => dispatch(setShowJoystick(!user.showJoystick))} className={user.showJoystick ? 'active' : ''}>
-               {user.showJoystick ? <VideogameAssetOffIcon fontSize="small" /> : <VideogameAssetIcon fontSize="small" />}
-             </ControlButton>
-          </Tooltip>
-
           <Divider orientation="vertical" flexItem style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
 
-          {/* Media Controls */}
-          <Tooltip title={micOn ? 'Mute Microphone' : 'Unmute Microphone'}>
-            <ControlButton onClick={handleMicToggle} className={!micOn ? 'danger' : ''}>
-              {micOn ? <MicIcon fontSize="small" /> : <MicOffIcon fontSize="small" />}
-            </ControlButton>
-          </Tooltip>
-          
-          <Tooltip title={camOn ? 'Turn Off Camera' : 'Turn On Camera'}>
-            <ControlButton onClick={handleCamToggle} className={!camOn ? 'danger' : ''}>
-              {camOn ? <VideocamIcon fontSize="small" /> : <VideocamOffIcon fontSize="small" />}
-            </ControlButton>
-          </Tooltip>
-
-          <Tooltip title="Share Screen">
-            <ControlButton>
-              <ScreenShareIcon fontSize="small" />
+          {/* Leave Room */}
+          <Tooltip title="Leave Room">
+            <ControlButton onClick={handleLogout} className="danger">
+              <ExitToAppIcon fontSize="small" />
             </ControlButton>
           </Tooltip>
 

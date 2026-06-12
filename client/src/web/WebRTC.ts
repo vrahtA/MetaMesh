@@ -2,57 +2,56 @@ import Peer from 'peerjs'
 import Network from '../services/Network'
 import store from '../stores'
 import { setVideoConnected } from '../stores/UserStore'
+import { setMyStream, addPeerStream, removePeerStream } from '../stores/VideoStore'
 
 export default class WebRTC {
   private myPeer: Peer
-  private peers = new Map<string, { call: Peer.MediaConnection; video: HTMLVideoElement }>()
-  private onCalledPeers = new Map<string, { call: Peer.MediaConnection; video: HTMLVideoElement }>()
-  private videoGrid = document.querySelector('.video-grid')
-  private buttonGrid = document.querySelector('.button-grid')
-  private myVideo = document.createElement('video')
-  private myStream?: MediaStream
+  private peers = new Map<string, Peer.MediaConnection>()
+  private onCalledPeers = new Map<string, Peer.MediaConnection>()
+  // Dedicated audio elements for remote streams so audio plays even when
+  // the video element is unmounted or off-screen
+  private audioElements = new Map<string, HTMLAudioElement>()
+  myStream?: MediaStream
   private network: Network
 
   constructor(userId: string, network: Network) {
     const sanitizedId = this.replaceInvalidId(userId)
     this.myPeer = new Peer(sanitizedId)
     this.network = network
-    console.log('userId:', userId)
-    console.log('sanitizedId:', sanitizedId)
+    console.log('userId:', userId, '→ sanitizedId:', sanitizedId)
     this.myPeer.on('error', (err) => {
-      console.log(err.type)
-      console.error(err)
+      console.error('PeerJS error:', err.type, err)
     })
-
-    // mute your own video stream (you don't want to hear yourself)
-    this.myVideo.muted = true
-
-    // config peerJS
     this.initialize()
   }
 
-  // PeerJS throws invalid_id error if it contains some characters such as that colyseus generates.
-  // https://peerjs.com/docs.html#peer-id
+  // PeerJS throws invalid_id if the id contains characters colyseus generates
   private replaceInvalidId(userId: string) {
     return userId.replace(/[^0-9a-z]/gi, 'G')
   }
 
   initialize() {
+    // Answer incoming calls
     this.myPeer.on('call', (call) => {
-      if (!this.onCalledPeers.has(call.peer)) {
-        call.answer(this.myStream)
-        const video = document.createElement('video')
-        this.onCalledPeers.set(call.peer, { call, video })
+      if (this.onCalledPeers.has(call.peer)) return // already connected
+      call.answer(this.myStream)
+      this.onCalledPeers.set(call.peer, call)
 
-        call.on('stream', (userVideoStream) => {
-          this.addVideoStream(video, userVideoStream)
-        })
-      }
-      // on close is triggered manually with deleteOnCalledVideoStream()
+      call.on('stream', (remoteStream) => {
+        this.addRemoteStream(call.peer, remoteStream)
+      })
+      call.on('close', () => {
+        this.cleanupPeer(call.peer, false)
+      })
+      call.on('error', (err) => {
+        console.error('incoming call error:', err)
+        this.cleanupPeer(call.peer, false)
+      })
     })
   }
 
-  // check if permission has been granted before
+  // ── permissions ────────────────────────────────────────────────────────────
+
   checkPreviousPermission() {
     const permissionName = 'microphone' as PermissionName
     navigator.permissions?.query({ name: permissionName }).then((result) => {
@@ -61,106 +60,100 @@ export default class WebRTC {
   }
 
   getUserMedia(alertOnError = true) {
-    // ask the browser to get user media
     navigator.mediaDevices
-      ?.getUserMedia({
-        video: true,
-        audio: true,
-      })
+      ?.getUserMedia({ video: true, audio: true })
       .then((stream) => {
         this.myStream = stream
-        this.addVideoStream(this.myVideo, this.myStream)
-        this.setUpButtons()
+        store.dispatch(setMyStream(stream))
         store.dispatch(setVideoConnected(true))
         this.network.videoConnected()
       })
-      .catch((error) => {
-        if (alertOnError) window.alert('No webcam or microphone found, or permission is blocked')
+      .catch(() => {
+        if (alertOnError)
+          window.alert('No webcam or microphone found, or permission is blocked')
       })
   }
 
-  // method to call a peer
+  // ── outgoing call ──────────────────────────────────────────────────────────
+
   connectToNewUser(userId: string) {
-    if (this.myStream) {
-      const sanitizedId = this.replaceInvalidId(userId)
-      if (!this.peers.has(sanitizedId)) {
-        console.log('calling', sanitizedId)
-        const call = this.myPeer.call(sanitizedId, this.myStream)
-        const video = document.createElement('video')
-        this.peers.set(sanitizedId, { call, video })
+    if (!this.myStream) return
+    const sanitizedId = this.replaceInvalidId(userId)
+    if (this.peers.has(sanitizedId)) return // already calling
+    console.log('Calling peer:', sanitizedId)
+    const call = this.myPeer.call(sanitizedId, this.myStream)
+    this.peers.set(sanitizedId, call)
 
-        call.on('stream', (userVideoStream) => {
-          this.addVideoStream(video, userVideoStream)
-        })
+    call.on('stream', (remoteStream) => {
+      this.addRemoteStream(sanitizedId, remoteStream)
+    })
+    call.on('close', () => {
+      this.cleanupPeer(sanitizedId, true)
+    })
+    call.on('error', (err) => {
+      console.error('outgoing call error:', err)
+      this.cleanupPeer(sanitizedId, true)
+    })
+  }
 
-        // on close is triggered manually with deleteVideoStream()
-      }
+  // ── stream management ──────────────────────────────────────────────────────
+
+  private addRemoteStream(peerId: string, stream: MediaStream) {
+    // Dispatch to Redux so React renders the video tile
+    store.dispatch(
+      addPeerStream({
+        peerId,
+        stream,
+        label: peerId.slice(0, 6),
+      })
+    )
+
+    // Dedicated <audio> element guarantees audio even when the video tile is
+    // off-screen.  We always create one; the React <video> element will handle
+    // the visual.
+    if (!this.audioElements.has(peerId)) {
+      const audio = document.createElement('audio')
+      audio.srcObject = stream
+      audio.autoplay = true
+      audio.playsInline = true
+      // Don't set audio.muted — we want the remote user's audio!
+      document.body.appendChild(audio)
+      this.audioElements.set(peerId, audio)
     }
   }
 
-  // method to add new video stream to videoGrid div
-  addVideoStream(video: HTMLVideoElement, stream: MediaStream) {
-    video.srcObject = stream
-    video.playsInline = true
-    video.addEventListener('loadedmetadata', () => {
-      video.play()
-    })
-    if (this.videoGrid) this.videoGrid.append(video)
+  private cleanupPeer(peerId: string, isOutgoing: boolean) {
+    store.dispatch(removePeerStream(peerId))
+    const audio = this.audioElements.get(peerId)
+    if (audio) {
+      audio.srcObject = null
+      audio.remove()
+      this.audioElements.delete(peerId)
+    }
+    if (isOutgoing) this.peers.delete(peerId)
+    else this.onCalledPeers.delete(peerId)
   }
 
-  // method to remove video stream (when we are the host of the call)
+  // ── public cleanup ─────────────────────────────────────────────────────────
+
   deleteVideoStream(userId: string) {
     const sanitizedId = this.replaceInvalidId(userId)
-    if (this.peers.has(sanitizedId)) {
-      const peer = this.peers.get(sanitizedId)
-      peer?.call.close()
-      peer?.video.remove()
-      this.peers.delete(sanitizedId)
+    const call = this.peers.get(sanitizedId)
+    if (call) {
+      call.close()
+      this.cleanupPeer(sanitizedId, true)
     }
   }
 
-  // method to remove video stream (when we are the guest of the call)
   deleteOnCalledVideoStream(userId: string) {
     const sanitizedId = this.replaceInvalidId(userId)
-    if (this.onCalledPeers.has(sanitizedId)) {
-      const onCalledPeer = this.onCalledPeers.get(sanitizedId)
-      onCalledPeer?.call.close()
-      onCalledPeer?.video.remove()
-      this.onCalledPeers.delete(sanitizedId)
+    const call = this.onCalledPeers.get(sanitizedId)
+    if (call) {
+      call.close()
+      this.cleanupPeer(sanitizedId, false)
     }
   }
 
-  // method to set up mute/unmute and video on/off buttons
-  setUpButtons() {
-    const audioButton = document.createElement('button')
-    audioButton.innerText = 'Mute'
-    audioButton.addEventListener('click', () => {
-      if (this.myStream) {
-        const audioTrack = this.myStream.getAudioTracks()[0]
-        if (audioTrack.enabled) {
-          audioTrack.enabled = false
-          audioButton.innerText = 'Unmute'
-        } else {
-          audioTrack.enabled = true
-          audioButton.innerText = 'Mute'
-        }
-      }
-    })
-    const videoButton = document.createElement('button')
-    videoButton.innerText = 'Video off'
-    videoButton.addEventListener('click', () => {
-      if (this.myStream) {
-        const audioTrack = this.myStream.getVideoTracks()[0]
-        if (audioTrack.enabled) {
-          audioTrack.enabled = false
-          videoButton.innerText = 'Video on'
-        } else {
-          audioTrack.enabled = true
-          videoButton.innerText = 'Video off'
-        }
-      }
-    })
-    this.buttonGrid?.append(audioButton)
-    this.buttonGrid?.append(videoButton)
-  }
+  // Legacy — kept for backward-compat; React UI handles controls now
+  setUpButtons() {}
 }

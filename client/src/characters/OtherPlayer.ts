@@ -86,6 +86,11 @@ export default class OtherPlayer extends Player {
     }
   }
 
+  disconnect() {
+    this.connected = false
+    this.connectionBufferTime = 0
+  }
+
   destroy(fromScene?: boolean) {
     this.playerContainer.destroy()
 
@@ -96,8 +101,10 @@ export default class OtherPlayer extends Player {
   preUpdate(t: number, dt: number) {
     super.preUpdate(t, dt)
 
-    // if Phaser has not updated the canvas (when the game tab is not active) for more than 1 sec
-    // directly snap player to their current locations
+    // Guard against currentAnim being null (can happen briefly on creation)
+    if (!this.anims.currentAnim) return
+
+    // Snap immediately if the game tab was inactive for > 750ms (avoid huge catch-up jumps)
     if (this.lastUpdateTimestamp && t - this.lastUpdateTimestamp > 750) {
       this.lastUpdateTimestamp = t
       this.x = this.targetPosition[0]
@@ -106,54 +113,49 @@ export default class OtherPlayer extends Player {
       this.playerContainer.y = this.targetPosition[1] - 30
       return
     }
-
     this.lastUpdateTimestamp = t
-    this.setDepth(this.y) // change player.depth based on player.y
+
+    this.setDepth(this.y)
     const animParts = this.anims.currentAnim.key.split('_')
     const animState = animParts[1]
     if (animState === 'sit') {
       const animDir = animParts[2]
       const sittingShift = sittingShiftData[animDir]
       if (sittingShift) {
-        // set hardcoded depth (differs between directions) if player sits down
         this.setDepth(this.depth + sittingShiftData[animDir][2])
       }
     }
 
-    const speed = 200 // speed is in unit of pixels per second
-    const delta = (speed / 1000) * dt // minimum distance that a player can move in a frame (dt is in unit of ms)
-    let dx = this.targetPosition[0] - this.x
-    let dy = this.targetPosition[1] - this.y
+    // ── Smooth lerp interpolation ────────────────────────────────────────────
+    // lerpFactor controls how quickly we chase the target each frame.
+    // 0.175 per ms means: at 60fps (dt≈16ms) we close ~95% of the gap in ~1 frame,
+    // giving smooth but snappy following that is framerate-independent.
+    const lerpFactor = 1 - Math.pow(1 - 0.175, dt / 16)
+    const SNAP_THRESHOLD = 4 // pixels — snap if already very close
 
-    // if the player is close enough to the target position, directly snap the player to that position
-    if (Math.abs(dx) < delta) {
+    const dx = this.targetPosition[0] - this.x
+    const dy = this.targetPosition[1] - this.y
+
+    if (Math.abs(dx) < SNAP_THRESHOLD) {
       this.x = this.targetPosition[0]
       this.playerContainer.x = this.targetPosition[0]
-      dx = 0
+    } else {
+      const newX = this.x + dx * lerpFactor
+      this.setVelocityX((newX - this.x) / (dt / 1000))
+      this.playContainerBody.setVelocityX((newX - this.x) / (dt / 1000))
     }
-    if (Math.abs(dy) < delta) {
+
+    if (Math.abs(dy) < SNAP_THRESHOLD) {
       this.y = this.targetPosition[1]
       this.playerContainer.y = this.targetPosition[1] - 30
-      dy = 0
+    } else {
+      const newY = this.y + dy * lerpFactor
+      this.setVelocityY((newY - this.y) / (dt / 1000))
+      this.playContainerBody.setVelocityY((newY - this.y) / (dt / 1000))
     }
+    // ────────────────────────────────────────────────────────────────────────
 
-    // if the player is still far from target position, impose a constant velocity towards it
-    let vx = 0
-    let vy = 0
-    if (dx > 0) vx += speed
-    else if (dx < 0) vx -= speed
-    if (dy > 0) vy += speed
-    else if (dy < 0) vy -= speed
-
-    // update character velocity
-    this.setVelocity(vx, vy)
-    this.body.velocity.setLength(speed)
-    // also update playerNameContainer velocity
-    this.playContainerBody.setVelocity(vx, vy)
-    this.playContainerBody.velocity.setLength(speed)
-
-    // while currently connected with myPlayer
-    // if myPlayer and the otherPlayer stop overlapping, delete video stream
+    // Proximity chat connection timer
     this.connectionBufferTime += dt
     if (
       this.connected &&

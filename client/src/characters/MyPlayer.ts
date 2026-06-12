@@ -20,6 +20,8 @@ export default class MyPlayer extends Player {
   private playContainerBody: Phaser.Physics.Arcade.Body
   private chairOnSit?: Chair
   public joystickMovement?: JoystickMovement
+  // Tracks the last animation key sent to the server to avoid redundant updates
+  private _lastSentAnim = ''
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -146,11 +148,11 @@ export default class MyPlayer extends Player {
         if (cursors.right?.isDown || cursors.D?.isDown || joystickRight) vx += speed
         if (cursors.up?.isDown || cursors.W?.isDown || joystickUp) {
           vy -= speed
-          this.setDepth(this.y) //change player.depth if player.y changes
+          this.setDepth(this.y)
         }
         if (cursors.down?.isDown || cursors.S?.isDown || joystickDown) {
           vy += speed
-          this.setDepth(this.y) //change player.depth if player.y changes
+          this.setDepth(this.y)
         }
         // update character velocity
         this.setVelocity(vx, vy)
@@ -159,8 +161,7 @@ export default class MyPlayer extends Player {
         this.playContainerBody.setVelocity(vx, vy)
         this.playContainerBody.velocity.setLength(speed)
 
-        // update animation according to velocity and send new location and anim to server
-        if (vx !== 0 || vy !== 0) network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
+        // update animation according to velocity
         if (vx > 0) {
           this.play(`${this.playerTexture}_run_right`, true)
         } else if (vx < 0) {
@@ -173,13 +174,20 @@ export default class MyPlayer extends Player {
           const parts = this.anims.currentAnim.key.split('_')
           parts[1] = 'idle'
           const newAnim = parts.join('_')
-          // this prevents idle animation keeps getting called
           if (this.anims.currentAnim.key !== newAnim) {
             this.play(parts.join('_'), true)
-            // send new location and anim to server
-            network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
           }
         }
+
+        // Send position every frame while moving OR on any animation change.
+        // This ensures remote players always have fresh data for smooth interpolation.
+        if (vx !== 0 || vy !== 0) {
+          network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
+        } else if (this._lastSentAnim !== this.anims.currentAnim.key) {
+          // Send once when stopping so remote players see idle immediately
+          network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
+        }
+        this._lastSentAnim = this.anims.currentAnim.key
         break
 
       case PlayerBehavior.SITTING:
