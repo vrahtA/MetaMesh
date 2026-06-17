@@ -3,11 +3,11 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/metamesh'
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/metamesh'
 
 export const connectDatabase = async (): Promise<void> => {
   try {
-    await mongoose.connect(MONGODB_URI)
+    await mongoose.connect(MONGO_URL)
     console.log('✅ MongoDB connected successfully')
   } catch (error) {
     console.error('❌ MongoDB connection error:', error)
