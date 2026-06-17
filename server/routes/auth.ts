@@ -14,8 +14,10 @@ const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '7d'
 const generateToken = (userId: string, email: string): string => {
   return jwt.sign(
     { userId, email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRATION }
+    JWT_SECRET as string,
+    // Cast needed: @types/jsonwebtoken v9 narrowed expiresIn to ms.StringValue | number
+    // but our env var is a plain string ('7d'). Runtime behavior is identical.
+    { expiresIn: JWT_EXPIRATION as any }
   )
 }
 

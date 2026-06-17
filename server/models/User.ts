@@ -10,7 +10,9 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>
 }
 
-const UserSchema: Schema = new Schema({
+// Note: No generic on Schema — Mongoose 9 + TypeScript 4.8 causes TS2589
+// (type instantiation too deep) with Schema<IUser>. The model itself is still typed.
+const UserSchema = new Schema({
   email: {
     type: String,
     required: true,
@@ -41,12 +43,9 @@ const UserSchema: Schema = new Schema({
 
 // Hash password before saving
 UserSchema.pre('save', async function () {
-  if (!this.isModified('password')) {
-    return
-  }
-
+  if (!this.isModified('password')) return
   const salt = await bcrypt.genSalt(10)
-  this.password = await bcrypt.hash(this.password, salt)
+  this.password = await bcrypt.hash(this.password as string, salt)
 })
 
 // Method to compare password
@@ -54,8 +53,8 @@ UserSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
   try {
-    return await bcrypt.compare(candidatePassword, this.password)
-  } catch (error) {
+    return await bcrypt.compare(candidatePassword, this.password as string)
+  } catch {
     return false
   }
 }
