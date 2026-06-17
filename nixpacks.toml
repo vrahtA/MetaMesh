@@ -1,0 +1,20 @@
+# Railway Nixpacks config for the SERVER service
+# Root directory: / (repo root)
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "cd types && npm install",
+  "cd server && npm install"
+]
+
+[phases.build]
+cmds = [
+  "cd server && npx tsc --project tsconfig.server.json"
+]
+
+[start]
+cmd = "node server/lib/index.js"

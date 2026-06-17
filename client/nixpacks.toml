@@ -1,0 +1,14 @@
+# Railway Nixpacks config for the CLIENT service
+# Root directory: /client
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npx vite preview --host 0.0.0.0 --port $PORT"
