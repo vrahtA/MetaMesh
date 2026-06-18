@@ -10,7 +10,7 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>
 }
 
-const UserSchema = new Schema({
+const UserSchema: Schema = new Schema({
   email: {
     type: String,
     required: true,
@@ -46,7 +46,7 @@ UserSchema.pre('save', async function () {
   }
 
   const salt = await bcrypt.genSalt(10)
-  this.password = await bcrypt.hash(this.password as string, salt)
+  this.password = await bcrypt.hash(this.password, salt)
 })
 
 // Method to compare password
@@ -60,7 +60,6 @@ UserSchema.methods.comparePassword = async function (
   }
 }
 
-// @ts-ignore — known Mongoose v9 / TS4 generic depth issue
-const User = mongoose.model<IUser>('User', UserSchema)
+const User: Model<IUser> = mongoose.model<IUser>('User', UserSchema)
 
 export default User
