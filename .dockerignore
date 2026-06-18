@@ -1,0 +1,10 @@
+node_modules
+client
+load-test
+load-test.js
+.env
+.git
+*.md
+.eslintrc.js
+.prettierrc.js
+.vscode
